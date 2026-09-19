@@ -1,29 +1,20 @@
 from typing import TypedDict
-from enum import StrEnum
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
+from sqlmodel import Session
 import os
 import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 
+from app.db.database import engine, create_db_and_tables
+from app.db.models import ApplicationStatus
+from app.db.repository import ApplicationRepository
+
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 OPENCODE_SESSION_ID = os.getenv("OPENCODE_SESSION_ID") or str(uuid.uuid4())
-
-
-
-class ApplicationStatus(StrEnum):
-    APPLIED = "APPLIED"
-    UNDER_REVIEW = "UNDER_REVIEW"
-    OA = "OA"
-    INTERVIEW = "INTERVIEW"
-    INTERVIEW_PASSED = "INTERVIEW_PASSED"
-    INTERVIEW_REJECTED = "INTERVIEW_REJECTED"
-    OFFER = "OFFER"
-    REJECTED = "REJECTED"
-    WITHDRAWN = "WITHDRAWN"
 
 
 llm = ChatOpenAI(
@@ -35,22 +26,23 @@ llm = ChatOpenAI(
 
 
 # State
-class ApplicationState(TypedDict):
+class ApplicationState(TypedDict, total=False):
     email_subject: str
     email_body: str
+    source_email_id: str
+    sender_email: str
     is_application_email: bool
     company: str
-    position: str
+    role: str
     status: ApplicationStatus
-    sent_by: str
+    application_id: int | None
 
 
 # Structured output schemas
-class ApplicationOutput(BaseModel):
+class ApplicationExtraction(BaseModel):
     company: str
+    role: str
     status: ApplicationStatus
-    position: str
-    source_email_id:str
 
 
 class Classifier(BaseModel):
@@ -58,8 +50,9 @@ class Classifier(BaseModel):
 
 
 # LLM variants
-structured_llm = llm.with_structured_output(ApplicationOutput)
+structured_llm = llm.with_structured_output(ApplicationExtraction)
 classifier_llm = llm.with_structured_output(Classifier)
+
 
 # Nodes
 def classify_email(state: ApplicationState) -> dict:
@@ -81,7 +74,7 @@ def extract(state: ApplicationState) -> dict:
         f"""You are a job application tracker.
 Extract the following from the email and respond in the required format:
 - company: name of the company
-- position: job title / role applied for
+- role: job title / role applied for
 - status: one of {[s.value for s in ApplicationStatus]}
   UNDER_REVIEW = application being reviewed
   OA = online assessment
@@ -95,13 +88,26 @@ Body:
     )
     return {
         "company": result.company,
-        "position": result.position,
+        "role": result.role,
         "status": result.status,
-        "sent_by":result.source_email_id
     }
 
-def persist(state:ApplicationState):
-    result = 
+
+def make_persist_node(session_factory=lambda: Session(engine)):
+    def persist(state: ApplicationState) -> dict:
+        extraction = ApplicationExtraction(
+            company=state["company"],
+            role=state["role"],
+            status=state["status"],
+        )
+        with session_factory() as session:
+            application = ApplicationRepository(session).create_or_update_application(
+                extraction, state["source_email_id"], state.get("sender_email")
+            )
+            return {"application_id": application.id}
+
+    return persist
+
 
 # Conditional routing
 def should_process(state: ApplicationState) -> str:
@@ -113,7 +119,7 @@ graph = StateGraph(ApplicationState)
 
 graph.add_node("classify_email", classify_email)
 graph.add_node("extract", extract)
-graph.add_node("persist",persist)
+graph.add_node("persist", make_persist_node())
 
 graph.add_edge(START, "classify_email")
 graph.add_conditional_edges(
@@ -124,18 +130,22 @@ graph.add_conditional_edges(
         "ignore": END,
     },
 )
-graph.add_edge("extract", END)
+graph.add_edge("extract", "persist")
+graph.add_edge("persist", END)
 
 workflow = graph.compile()
 
 
 # Test invocation
 if __name__ == "__main__":
+    create_db_and_tables()
     result = workflow.invoke({
         "email_subject": "Application Update - Software Engineer Intern",
         "email_body": """
             Thank you for applying to Acme Corp for the Software Engineer Intern role.
             Your application is currently under review.
         """,
+        "source_email_id": "test-email-1",
+        "sender_email": "recruiter@acme.com",
     })
     print(result)

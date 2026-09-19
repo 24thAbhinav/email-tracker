@@ -42,6 +42,7 @@ class ApplicationRepository:
         status: ApplicationStatus,
         source_email_id: str,
         applied_at: datetime | None = None,
+        sender_email: str | None = None,
     ) -> Application:
         """Insert a new application. Raises ``IntegrityError`` on duplicate email."""
         application = Application(
@@ -50,6 +51,7 @@ class ApplicationRepository:
             status=status,
             source_email_id=source_email_id,
             applied_at=applied_at,
+            sender_email=sender_email,
         )
         self.session.add(application)
         try:
@@ -99,7 +101,7 @@ class ApplicationRepository:
         return application
 
     def create_or_update_application(
-        self, extraction: ApplicationExtractionLike, email_id: str
+        self, extraction: ApplicationExtractionLike, email_id: str, sender_email: str | None = None
     ) -> Application:
         """Idempotently persist an extracted application.
 
@@ -123,6 +125,7 @@ class ApplicationRepository:
                 role=extraction.role,
                 status=extraction.status,
                 source_email_id=email_id,
+                sender_email=sender_email,
             )
         except IntegrityError:
             # A concurrent insert may have won the race for this email id.

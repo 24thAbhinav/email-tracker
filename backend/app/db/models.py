@@ -44,3 +44,4 @@ class Application(SQLModel, table=True):
     )
 
     source_email_id: str = Field(unique=True, index=True)
+    sender_email: str | None = Field(default=None, index=True)
