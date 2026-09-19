@@ -42,6 +42,7 @@ class ApplicationState(TypedDict):
     company: str
     position: str
     status: ApplicationStatus
+    sent_by: str
 
 
 # Structured output schemas
@@ -49,6 +50,7 @@ class ApplicationOutput(BaseModel):
     company: str
     status: ApplicationStatus
     position: str
+    source_email_id:str
 
 
 class Classifier(BaseModel):
@@ -58,7 +60,6 @@ class Classifier(BaseModel):
 # LLM variants
 structured_llm = llm.with_structured_output(ApplicationOutput)
 classifier_llm = llm.with_structured_output(Classifier)
-
 
 # Nodes
 def classify_email(state: ApplicationState) -> dict:
@@ -96,8 +97,11 @@ Body:
         "company": result.company,
         "position": result.position,
         "status": result.status,
+        "sent_by":result.source_email_id
     }
 
+def persist(state:ApplicationState):
+    result = 
 
 # Conditional routing
 def should_process(state: ApplicationState) -> str:
@@ -109,6 +113,7 @@ graph = StateGraph(ApplicationState)
 
 graph.add_node("classify_email", classify_email)
 graph.add_node("extract", extract)
+graph.add_node("persist",persist)
 
 graph.add_edge(START, "classify_email")
 graph.add_conditional_edges(

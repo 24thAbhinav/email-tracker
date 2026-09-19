@@ -19,7 +19,9 @@ google-api-python-client>=2.131.0
 
 # ── Database ─────────────────────────────────────────
 sqlalchemy>=2.0.0
+sqlmodel>=0.0.22
 alembic>=1.13.0
+psycopg2-binary>=2.9.9   # PostgreSQL driver
 # asyncpg>=0.29.0        # PostgreSQL async
 
 # ── Utils ────────────────────────────────────────────
