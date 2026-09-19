@@ -1,0 +1,51 @@
+# ── Python / Backend ─────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+*.sqlite3
+*.db
+token.json
+credentials.json
+*.log
+
+# ── Environment ───────────────────────────────────────
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ── Alembic ──────────────────────────────────────────
+# Keep migrations tracked, but ignore __pycache__ inside
+alembic/versions/__pycache__/
+
+# ── Node / Frontend ───────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+.DS_Store
+
+# ── IDE / OS ─────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Testing / Coverage ───────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
