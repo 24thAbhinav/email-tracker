@@ -49,3 +49,8 @@ Thumbs.db
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+
+# ── VS Code ───────────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/settings.json          # track shared project settings
+!.vscode/extensions.json        # track recommended extensions

@@ -1,0 +1,5 @@
+{
+  // Root workspace — each sub-folder manages its own interpreter.
+  // Open backend/ as its own workspace folder to get auto-venv activation.
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python"
+}
