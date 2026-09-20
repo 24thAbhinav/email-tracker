@@ -163,7 +163,12 @@ def get_credentials(settings: GmailSettings) -> Credentials:
     """Load the saved token, refreshing it if needed."""
     path = Path(settings.token_path)
     if not path.exists():
-        raise GmailError("No Gmail token. Complete the OAuth flow first.")
+        token_env = os.getenv("GMAIL_TOKEN_JSON")
+        if token_env:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(token_env)
+        else:
+            raise GmailError("No Gmail token. Complete the OAuth flow first.")
     try:
         credentials = Credentials.from_authorized_user_info(
             json.loads(path.read_text()), scopes=SCOPES
