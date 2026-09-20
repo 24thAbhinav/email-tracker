@@ -20,6 +20,9 @@ export interface Application {
   updated_at: string
   source_email_id: string
   sender_email: string | null
+  notes?: string | null
+  action_url?: string | null
+  event_date?: string | null
 }
 
 export interface ApplicationEvent {
@@ -27,6 +30,8 @@ export interface ApplicationEvent {
   application_id: number
   status: ApplicationStatus
   note: string | null
+  action_url?: string | null
+  event_date?: string | null
   created_at: string
 }
 

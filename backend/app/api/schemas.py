@@ -18,6 +18,9 @@ class ApplicationRead(SQLModel):
     updated_at: datetime
     source_email_id: str
     sender_email: str | None = None
+    notes: str | None = None
+    action_url: str | None = None
+    event_date: str | None = None
 
 
 class ApplicationListResponse(SQLModel):
@@ -32,4 +35,6 @@ class ApplicationEventRead(SQLModel):
     application_id: int
     status: ApplicationStatus
     note: str | None = None
+    action_url: str | None = None
+    event_date: str | None = None
     created_at: datetime

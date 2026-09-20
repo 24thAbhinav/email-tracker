@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import TypedDict
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
 from sqlmodel import Session
@@ -37,6 +37,9 @@ class ApplicationState(TypedDict, total=False):
     company: str
     role: str
     status: ApplicationStatus
+    summary: str | None
+    action_url: str | None
+    event_date: str | None
     application_id: int | None
 
 
@@ -45,6 +48,18 @@ class ApplicationExtraction(BaseModel):
     company: str
     role: str
     status: ApplicationStatus
+    summary: str | None = Field(
+        default=None,
+        description="Concise 1-2 sentence summary of this email's status update or required action."
+    )
+    action_url: str | None = Field(
+        default=None,
+        description="Direct URL link for interview (Zoom/Meet/Teams), online assessment (HackerRank/CodeSignal/portal), or scheduling calendar if present in the email."
+    )
+    event_date: str | None = Field(
+        default=None,
+        description="Date and/or time mentioned for the interview, test deadline, or next step if specified in the email (e.g. 'Sept 25, 2026, 3:00 PM IST', 'Within 48 hours')."
+    )
 
 
 class Classifier(BaseModel):
@@ -74,13 +89,18 @@ Body:
 def extract(state: ApplicationState) -> dict:
     result = structured_llm.invoke(
         f"""You are a job application tracker.
-Extract the following from the email and respond in the required format:
-- company: name of the company
-- role: job title / role applied for
-- status: one of {[s.value for s in ApplicationStatus]}
-  UNDER_REVIEW = application being reviewed
-  OA = online assessment
+Extract the following details from the email:
+- company: Name of the company
+- role: Job title / role applied for
+- status: One of {[s.value for s in ApplicationStatus]}
+  UNDER_REVIEW = application received / under review
+  OA = online assessment / coding test invitation
   INTERVIEW / INTERVIEW_PASSED / INTERVIEW_REJECTED = interview stages
+  OFFER = job offer extended
+  REJECTED = application rejected / not selected
+- summary: A concise 1-2 sentence summary describing the email update or instructions (e.g. 'Received OA link for technical round', 'Invited to 45-min technical interview').
+- action_url: The primary link for the candidate if available in the text (e.g. interview link, test link, scheduling calendar link, portal login).
+- event_date: Any specific scheduled date/time or deadline mentioned for the action (e.g. 'Sept 25, 2026 at 3:00 PM', 'Complete by Sept 22').
 
 Subject: {state["email_subject"]}
 
@@ -92,6 +112,9 @@ Body:
         "company": result.company,
         "role": result.role,
         "status": result.status,
+        "summary": result.summary,
+        "action_url": result.action_url,
+        "event_date": result.event_date,
     }
 
 
@@ -101,6 +124,9 @@ def make_persist_node(session_factory=lambda: Session(engine)):
             company=state["company"],
             role=state["role"],
             status=state["status"],
+            summary=state.get("summary"),
+            action_url=state.get("action_url"),
+            event_date=state.get("event_date"),
         )
         with session_factory() as session:
             application = ApplicationRepository(session).create_or_update_application(

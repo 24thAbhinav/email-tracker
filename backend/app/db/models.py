@@ -46,6 +46,10 @@ class Application(SQLModel, table=True):
     source_email_id: str = Field(unique=True, index=True)
     sender_email: str | None = Field(default=None, index=True)
 
+    notes: str | None = Field(default=None)
+    action_url: str | None = Field(default=None)
+    event_date: str | None = Field(default=None)
+
 
 class ApplicationEvent(SQLModel, table=True):
     """A status change for an application, used to render its timeline."""
@@ -54,6 +58,8 @@ class ApplicationEvent(SQLModel, table=True):
     application_id: int = Field(foreign_key="application.id", index=True)
     status: ApplicationStatus
     note: str | None = Field(default=None)
+    action_url: str | None = Field(default=None)
+    event_date: str | None = Field(default=None)
     created_at: datetime = Field(
         default_factory=utcnow,
         sa_type=DateTime(timezone=True),

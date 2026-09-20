@@ -56,7 +56,19 @@ export default function ApplicationDetailPage() {
               <h1>{application.company}</h1>
               <p className="muted">{application.role}</p>
             </div>
-            <StatusBadge status={application.status} />
+            <div className="detail-actions">
+              {application.action_url && (
+                <a
+                  href={application.action_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="action-btn"
+                >
+                  Open Link ↗
+                </a>
+              )}
+              <StatusBadge status={application.status} />
+            </div>
           </header>
 
           <section className="panel detail-grid">
@@ -80,6 +92,18 @@ export default function ApplicationDetailPage() {
               <span className="field-label">Last updated</span>
               <span>{formatDateTime(application.updated_at)}</span>
             </div>
+            {application.event_date && (
+              <div>
+                <span className="field-label">Scheduled / Deadline</span>
+                <span className="highlight-date">🗓 {application.event_date}</span>
+              </div>
+            )}
+            {application.notes && (
+              <div className="notes-span">
+                <span className="field-label">Latest Summary</span>
+                <p className="note-text">{application.notes}</p>
+              </div>
+            )}
           </section>
 
           <section className="panel">
@@ -92,12 +116,36 @@ export default function ApplicationDetailPage() {
                   <li key={event.id} className="timeline-item">
                     <span className="timeline-dot" />
                     <div className="timeline-body">
-                      <span className="timeline-status">
-                        {statusLabel(event.status)}
-                      </span>
-                      <span className="timeline-date muted">
-                        {formatDateTime(event.created_at)}
-                      </span>
+                      <div className="timeline-header">
+                        <span className="timeline-status">
+                          {statusLabel(event.status)}
+                        </span>
+                        <span className="timeline-date muted">
+                          {formatDateTime(event.created_at)}
+                        </span>
+                      </div>
+                      {event.note && (
+                        <p className="timeline-note">{event.note}</p>
+                      )}
+                      {(event.event_date || event.action_url) && (
+                        <div className="timeline-meta">
+                          {event.event_date && (
+                            <span className="meta-chip date-chip">
+                              🗓 {event.event_date}
+                            </span>
+                          )}
+                          {event.action_url && (
+                            <a
+                              href={event.action_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="meta-chip link-chip"
+                            >
+                              🔗 Link ↗
+                            </a>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </li>
                 ))}
