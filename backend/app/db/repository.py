@@ -159,22 +159,33 @@ class ApplicationRepository:
         )
 
     def create_or_update_application(
-        self, extraction: ApplicationExtractionLike, email_id: str, sender_email: str | None = None
+        self,
+        extraction: ApplicationExtractionLike,
+        email_id: str,
+        sender_email: str | None = None,
+        applied_at: datetime | None = None,
     ) -> Application:
         """Idempotently persist an extracted application.
 
-        - The same ``email_id`` never creates a second record.
-        - A different email for the same ``company + role`` updates the
+        - The same email_id never creates a second record.
+        - A different email for the same company + role updates the
           existing application instead of creating another one.
         """
         existing_by_email = self.get_application_by_email_id(email_id)
         if existing_by_email is not None:
+            if existing_by_email.applied_at is None and applied_at is not None:
+                existing_by_email.applied_at = applied_at
+                self.session.add(existing_by_email)
+                self.session.commit()
+                self.session.refresh(existing_by_email)
             return existing_by_email
 
         existing = self.find_application_by_company_and_role(
             extraction.company, extraction.role
         )
         if existing is not None:
+            if existing.applied_at is None and applied_at is not None:
+                existing.applied_at = applied_at
             return self.update_application_status(existing, extraction.status)
 
         try:
@@ -183,6 +194,7 @@ class ApplicationRepository:
                 role=extraction.role,
                 status=extraction.status,
                 source_email_id=email_id,
+                applied_at=applied_at or utcnow(),
                 sender_email=sender_email,
             )
         except IntegrityError:

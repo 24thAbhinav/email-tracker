@@ -16,6 +16,7 @@ def email_to_state(email: Email) -> ApplicationState:
         "email_body": email.body,
         "source_email_id": email.id,
         "sender_email": email.sender,
+        "received_at": email.received_at,
     }
 
 

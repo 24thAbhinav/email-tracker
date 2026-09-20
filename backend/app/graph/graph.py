@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import TypedDict
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
@@ -31,6 +32,7 @@ class ApplicationState(TypedDict, total=False):
     email_body: str
     source_email_id: str
     sender_email: str
+    received_at: datetime | None
     is_application_email: bool
     company: str
     role: str
@@ -102,7 +104,10 @@ def make_persist_node(session_factory=lambda: Session(engine)):
         )
         with session_factory() as session:
             application = ApplicationRepository(session).create_or_update_application(
-                extraction, state["source_email_id"], state.get("sender_email")
+                extraction,
+                state["source_email_id"],
+                sender_email=state.get("sender_email"),
+                applied_at=state.get("received_at"),
             )
             return {"application_id": application.id}
 
