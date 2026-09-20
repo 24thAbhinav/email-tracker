@@ -80,7 +80,6 @@ def get_gmail_sync(
     )
 
 
-@traceable(name="Process Ingestion Batch", run_type="chain")
 def _process_emails(sync: GmailSync, graph, emails) -> list[dict]:
     repo = ApplicationRepository(sync.session)
     processed: list[dict] = []

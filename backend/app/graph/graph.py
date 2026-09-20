@@ -79,7 +79,6 @@ classifier_llm = llm.with_structured_output(Classifier)
 
 
 # Nodes
-@traceable(name="Classify Email")
 def classify_email(state: ApplicationState) -> dict:
     result = classifier_llm.invoke(
         f"""Analyze whether this email is related to a job application
@@ -94,7 +93,6 @@ Body:
     return {"is_application_email": result.is_application_email}
 
 
-@traceable(name="Extract Details")
 def extract(state: ApplicationState) -> dict:
     result = structured_llm.invoke(
         f"""You are a job application tracker.
@@ -129,7 +127,6 @@ Body:
 
 
 def make_persist_node(session_factory=lambda: Session(engine)):
-    @traceable(name="Persist Application")
     def persist(state: ApplicationState) -> dict:
         extraction = ApplicationExtraction(
             company=state["company"],

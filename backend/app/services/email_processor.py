@@ -22,7 +22,6 @@ def email_to_state(email: Email) -> ApplicationState:
     }
 
 
-@traceable(name="Process Email", run_type="chain")
 def process_email(email: Email, *, graph=workflow) -> dict:
     """Run one normalized Email through the application-tracking graph."""
     run_name = f"Email: {email.subject[:50]}" if email.subject else f"Email: {email.id}"
