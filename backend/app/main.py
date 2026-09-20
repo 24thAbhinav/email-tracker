@@ -6,6 +6,7 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
+from langsmith import traceable
 
 load_dotenv()
 
@@ -73,6 +74,7 @@ def get_gmail_sync(
     )
 
 
+@traceable(name="Process Ingestion Batch", run_type="chain")
 def _process_emails(sync: GmailSync, graph, emails) -> list[dict]:
     repo = ApplicationRepository(sync.session)
     processed: list[dict] = []
