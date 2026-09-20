@@ -22,4 +22,14 @@ def email_to_state(email: Email) -> ApplicationState:
 
 def process_email(email: Email, *, graph=workflow) -> dict:
     """Run one normalized Email through the application-tracking graph."""
-    return graph.invoke(email_to_state(email))
+    run_name = f"Email: {email.subject[:50]}" if email.subject else f"Email: {email.id}"
+    config = {
+        "run_name": run_name,
+        "tags": ["email-processor", "job-tracker"],
+        "metadata": {
+            "email_id": email.id,
+            "sender": email.sender,
+            "subject": email.subject,
+        },
+    }
+    return graph.invoke(email_to_state(email), config=config)
