@@ -8,13 +8,14 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react'
-import StatusBadge, { statusLabel } from '../components/StatusBadge'
+import StatusBadge, { STATUS_LABELS, statusLabel } from '../components/StatusBadge'
 import {
   getApplication,
   getApplicationEvents,
   setApplicationClosed,
+  updateApplication,
 } from '../services/api'
-import type { Application, ApplicationEvent } from '../types'
+import type { Application, ApplicationEvent, ApplicationStatus } from '../types'
 import { formatDateTime } from '../utils/format'
 
 export default function ApplicationDetailPage() {
@@ -55,6 +56,22 @@ export default function ApplicationDetailPage() {
     }
   }, [id, reloadKey])
 
+  const handleStatusChange = async (newStatus: ApplicationStatus) => {
+    if (!application || application.status === newStatus) return
+    setPending(true)
+    setActionError(null)
+    try {
+      const updated = await updateApplication(application.id, { status: newStatus })
+      setApplication(updated)
+      const updatedEvents = await getApplicationEvents(application.id)
+      setEvents(updatedEvents)
+    } catch {
+      setActionError('Could not update status. Please try again.')
+    } finally {
+      setPending(false)
+    }
+  }
+
   const toggleClosed = async () => {
     if (!application) return
     setPending(true)
@@ -65,6 +82,8 @@ export default function ApplicationDetailPage() {
         !application.is_closed,
       )
       setApplication(updated)
+      const updatedEvents = await getApplicationEvents(application.id)
+      setEvents(updatedEvents)
     } catch {
       setActionError('Could not update this application. Please try again.')
     } finally {
@@ -124,7 +143,27 @@ export default function ApplicationDetailPage() {
               <p className="detail-role">{application.role}</p>
             </div>
             <div className="detail-actions">
-              <StatusBadge status={displayStatus} />
+              <div className="status-control-group">
+                <StatusBadge status={displayStatus} />
+                {!application.is_closed && (
+                  <select
+                    className="status-select"
+                    value={application.status}
+                    disabled={pending}
+                    onChange={(e) => handleStatusChange(e.target.value as ApplicationStatus)}
+                    aria-label="Change application status"
+                    title="Change application status"
+                  >
+                    {Object.entries(STATUS_LABELS)
+                      .filter(([key]) => key !== 'CLOSED')
+                      .map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </div>
               {application.action_url && (
                 <a
                   className="btn btn-sm"

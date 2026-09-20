@@ -82,7 +82,23 @@ def update_application(
     application = repo.get_application_by_id(application_id)
     if application is None:
         raise HTTPException(status_code=404, detail="Application not found")
-    application = repo.set_application_closed(application, payload.is_closed)
+
+    if payload.status is not None:
+        application = repo.update_application_status(
+            application,
+            payload.status,
+            notes=payload.notes or application.notes,
+        )
+    elif payload.notes is not None:
+        application.notes = payload.notes
+        application.updated_at = utcnow()
+        session.add(application)
+        session.commit()
+        session.refresh(application)
+
+    if payload.is_closed is not None:
+        application = repo.set_application_closed(application, payload.is_closed)
+
     return ApplicationRead.model_validate(application, from_attributes=True)
 
 

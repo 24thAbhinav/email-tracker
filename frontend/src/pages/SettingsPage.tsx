@@ -75,8 +75,19 @@ export default function SettingsPage() {
     setLoading('sync')
     setSyncMessage(null)
     try {
-      await triggerFullSync()
-      setSyncMessage({ type: 'success', text: 'Sync complete.' })
+      const result = await triggerFullSync()
+      const fetched = result.fetched
+      const added = result.processed.length
+      const skipped = Math.max(fetched - added, 0)
+      setSyncMessage({
+        type: 'success',
+        text:
+          fetched === 0
+            ? 'Sync complete. No emails to fetch.'
+            : `Sync complete. Refetched ${fetched} email${
+                fetched === 1 ? '' : 's'
+              } — ${added} new, ${skipped} already tracked.`,
+      })
     } catch (error) {
       setSyncMessage({ type: 'error', text: errorMessage(error) })
     } finally {

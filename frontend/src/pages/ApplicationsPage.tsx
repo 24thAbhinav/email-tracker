@@ -10,11 +10,12 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react'
-import StatusBadge from '../components/StatusBadge'
+import StatusBadge, { STATUS_LABELS } from '../components/StatusBadge'
 import {
   getApplications,
   getApplicationStats,
   setApplicationClosed,
+  updateApplication,
   type ApplicationFilters,
 } from '../services/api'
 import type { Application, ApplicationStats, ApplicationStatus } from '../types'
@@ -119,6 +120,30 @@ export default function ApplicationsPage() {
       window.clearTimeout(timer)
     }
   }, [search, filter, reloadKey])
+
+  const handleStatusChange = async (
+    application: Application,
+    newStatus: ApplicationStatus,
+  ) => {
+    if (application.status === newStatus) return
+    setPendingId(application.id)
+    setActionError(null)
+    try {
+      const updated = await updateApplication(application.id, { status: newStatus })
+      setApplications((prev) => {
+        const stillMatches =
+          filter === 'ALL' ? !updated.is_closed : updated.status === filter
+        return stillMatches
+          ? prev.map((item) => (item.id === updated.id ? updated : item))
+          : prev.filter((item) => item.id !== updated.id)
+      })
+      await loadStats()
+    } catch {
+      setActionError('Could not update status. Please try again.')
+    } finally {
+      setPendingId(null)
+    }
+  }
 
   const toggleClosed = async (application: Application) => {
     setPendingId(application.id)
@@ -329,12 +354,37 @@ export default function ApplicationsPage() {
                       </Link>
                     </td>
                     <td className="cell-role">{application.role}</td>
-                    <td>
-                      <StatusBadge
-                        status={
-                          application.is_closed ? 'CLOSED' : application.status
-                        }
-                      />
+                    <td className="cell-status">
+                      <div className="status-cell-flex">
+                        <StatusBadge
+                          status={
+                            application.is_closed ? 'CLOSED' : application.status
+                          }
+                        />
+                        {!application.is_closed && (
+                          <select
+                            className="table-status-select"
+                            value={application.status}
+                            disabled={pendingId === application.id}
+                            onChange={(e) =>
+                              handleStatusChange(
+                                application,
+                                e.target.value as ApplicationStatus,
+                              )
+                            }
+                            aria-label={`Change status for ${application.company}`}
+                            title="Change status"
+                          >
+                            {Object.entries(STATUS_LABELS)
+                              .filter(([key]) => key !== 'CLOSED')
+                              .map(([key, label]) => (
+                                <option key={key} value={key}>
+                                  {label}
+                                </option>
+                              ))}
+                          </select>
+                        )}
+                      </div>
                     </td>
                     <td className="cell-date">
                       {formatDateTime(application.updated_at)}

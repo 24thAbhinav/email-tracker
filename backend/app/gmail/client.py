@@ -74,12 +74,46 @@ class GmailSettings:
         except ValueError:
             full_sync_max = 50
 
+        client_id = os.getenv("GOOGLE_CLIENT_ID") or None
+        client_secret = os.getenv("GOOGLE_CLIENT_SECRET") or None
+        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI") or None
+        credentials_path = path("GMAIL_CREDENTIALS_PATH", "credentials.json")
+        creds_json = os.getenv("GMAIL_CREDENTIALS_JSON")
+
+        if creds_json and credentials_path:
+            cp = Path(credentials_path)
+            if not cp.exists():
+                try:
+                    cp.parent.mkdir(parents=True, exist_ok=True)
+                    cp.write_text(creds_json)
+                except Exception:
+                    pass
+
+        if creds_json and (not client_id or not client_secret):
+            try:
+                data = json.loads(creds_json)
+                key = "web" if "web" in data else ("installed" if "installed" in data else None)
+                if key:
+                    client_id = client_id or data[key].get("client_id")
+                    client_secret = client_secret or data[key].get("client_secret")
+                    if not redirect_uri and data[key].get("redirect_uris"):
+                        redirect_uri = data[key]["redirect_uris"][0]
+            except Exception:
+                pass
+
+        if not redirect_uri:
+            render_url = os.getenv("RENDER_EXTERNAL_URL")
+            if render_url:
+                redirect_uri = f"{render_url.rstrip('/')}/auth/callback"
+            else:
+                redirect_uri = "http://localhost:8000/auth/callback"
+
         return cls(
-            client_id=os.getenv("GOOGLE_CLIENT_ID") or None,
-            client_secret=os.getenv("GOOGLE_CLIENT_SECRET") or None,
-            redirect_uri=os.getenv("GOOGLE_REDIRECT_URI") or None,
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
             token_path=path("GMAIL_TOKEN_PATH", "token.json") or "",
-            credentials_path=path("GMAIL_CREDENTIALS_PATH", "credentials.json"),
+            credentials_path=credentials_path,
             topic=os.getenv("GMAIL_PUBSUB_TOPIC") or None,
             account=os.getenv("GMAIL_SYNC_ACCOUNT") or USER_ID,
             full_sync_max=full_sync_max,
@@ -98,28 +132,31 @@ class GmailSettings:
 
 
 def _build_flow(settings: GmailSettings) -> Flow:
+    redirect_uri = settings.redirect_uri or os.getenv("GOOGLE_REDIRECT_URI")
+    if not redirect_uri:
+        render_url = os.getenv("RENDER_EXTERNAL_URL")
+        redirect_uri = f"{render_url.rstrip('/')}/auth/callback" if render_url else "http://localhost:8000/auth/callback"
+
     if settings.credentials_path and Path(settings.credentials_path).exists():
         return Flow.from_client_secrets_file(
-            settings.credentials_path, scopes=SCOPES, redirect_uri=settings.redirect_uri
+            settings.credentials_path, scopes=SCOPES, redirect_uri=redirect_uri
         )
-    if not (settings.client_id and settings.client_secret):
-        raise GmailError(
-            "Set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET or provide GMAIL_CREDENTIALS_PATH."
+    if settings.client_id and settings.client_secret:
+        return Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": settings.client_id,
+                    "client_secret": settings.client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [redirect_uri],
+                }
+            },
+            scopes=SCOPES,
+            redirect_uri=redirect_uri,
         )
-    if not settings.redirect_uri:
-        raise GmailError("GOOGLE_REDIRECT_URI is required.")
-    return Flow.from_client_config(
-        {
-            "web": {
-                "client_id": settings.client_id,
-                "client_secret": settings.client_secret,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [settings.redirect_uri],
-            }
-        },
-        scopes=SCOPES,
-        redirect_uri=settings.redirect_uri,
+    raise GmailError(
+        "Set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET or provide GMAIL_CREDENTIALS_PATH."
     )
 
 

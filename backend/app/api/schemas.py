@@ -26,7 +26,9 @@ class ApplicationRead(SQLModel):
 
 
 class ApplicationUpdate(SQLModel):
-    is_closed: bool
+    is_closed: bool | None = None
+    status: ApplicationStatus | None = None
+    notes: str | None = None
 
 
 class ApplicationStats(SQLModel):

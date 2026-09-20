@@ -6,6 +6,7 @@ import type {
   ApplicationEvent,
   ApplicationListResponse,
   ApplicationStats,
+  ApplicationStatus,
 } from '../types'
 
 const api = axios.create({
@@ -48,14 +49,23 @@ export async function getApplicationEvents(
   return data
 }
 
+export async function updateApplication(
+  id: number,
+  updates: {
+    status?: ApplicationStatus
+    is_closed?: boolean
+    notes?: string
+  },
+): Promise<Application> {
+  const { data } = await api.patch<Application>(`/applications/${id}`, updates)
+  return data
+}
+
 export async function setApplicationClosed(
   id: number,
   isClosed: boolean,
 ): Promise<Application> {
-  const { data } = await api.patch<Application>(`/applications/${id}`, {
-    is_closed: isClosed,
-  })
-  return data
+  return updateApplication(id, { is_closed: isClosed })
 }
 
 export default api
