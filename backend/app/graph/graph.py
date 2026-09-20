@@ -25,9 +25,11 @@ if os.getenv('LANGSMITH_PROJECT'):
 OPENCODE_SESSION_ID = os.getenv("OPENCODE_SESSION_ID") or str(uuid.uuid4())
 
 
+_opencode_key = os.getenv("OPENCODE_API_KEY") or os.getenv("OPENAI_API_KEY") or "missing-key"
+
 llm = ChatOpenAI(
     model="mimo-v2.5",
-    api_key=os.getenv("OPENCODE_API_KEY"),
+    api_key=_opencode_key,
     base_url="https://opencode.ai/zen/go/v1",
     default_headers={"x-opencode-session": OPENCODE_SESSION_ID},
 )

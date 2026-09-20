@@ -1,24 +1,25 @@
-# main.py - FastAPI application entry point + Gmail webhook/auth
+# main.py - FastAPI application entry point + Gmail webhook/auth + Static SPA
 
 from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
-from langsmith import traceable
 
 load_dotenv(override=True)
-if os.getenv('LANGSMITH_API_KEY') and not os.getenv('LANGCHAIN_API_KEY'):
-    os.environ['LANGCHAIN_API_KEY'] = os.environ['LANGSMITH_API_KEY']
-if os.getenv('LANGSMITH_TRACING') == 'true':
-    os.environ['LANGCHAIN_TRACING_V2'] = 'true'
-if os.getenv('LANGSMITH_PROJECT'):
-    os.environ.setdefault('LANGCHAIN_PROJECT', os.environ['LANGSMITH_PROJECT'])
+if os.getenv("LANGSMITH_API_KEY") and not os.getenv("LANGCHAIN_API_KEY"):
+    os.environ["LANGCHAIN_API_KEY"] = os.environ["LANGSMITH_API_KEY"]
+if os.getenv("LANGSMITH_TRACING") == "true":
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+if os.getenv("LANGSMITH_PROJECT"):
+    os.environ.setdefault("LANGCHAIN_PROJECT", os.environ["LANGSMITH_PROJECT"])
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from app.api.applications import router as applications_router
@@ -54,8 +55,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.include_router(applications_router)
 
 
 def get_settings() -> GmailSettings:
@@ -99,10 +98,16 @@ def _process_emails(sync: GmailSync, graph, emails) -> list[dict]:
     return processed
 
 
+# ── Routers ─────────────────────────────────────────────────────────────────
+
+auth_router = APIRouter(prefix="/auth", tags=["auth"])
+gmail_router = APIRouter(prefix="/gmail", tags=["gmail"])
+
+
 # ── One-time OAuth ──────────────────────────────────────────────────────────
 
 
-@app.get("/auth/url")
+@auth_router.get("/url")
 def gmail_auth_url(settings: GmailSettings = Depends(get_settings)):
     """Open this in a browser to start the Google consent flow."""
     try:
@@ -112,7 +117,7 @@ def gmail_auth_url(settings: GmailSettings = Depends(get_settings)):
     return RedirectResponse(url)
 
 
-@app.get("/auth/callback")
+@auth_router.get("/callback")
 def gmail_auth_callback(
     code: str | None = None,
     settings: GmailSettings = Depends(get_settings),
@@ -130,7 +135,7 @@ def gmail_auth_callback(
 # ── Gmail watch + ingestion ─────────────────────────────────────────────────
 
 
-@app.post("/gmail/watch")
+@gmail_router.post("/watch")
 def gmail_watch(sync: GmailSync = Depends(get_gmail_sync)) -> dict:
     """Start/renew the Gmail push watch."""
     try:
@@ -139,7 +144,7 @@ def gmail_watch(sync: GmailSync = Depends(get_gmail_sync)) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@app.post("/gmail/sync")
+@gmail_router.post("/sync")
 def gmail_manual_sync(
     sync: GmailSync = Depends(get_gmail_sync),
     graph=Depends(get_workflow),
@@ -149,7 +154,7 @@ def gmail_manual_sync(
     return {"fetched": len(emails), "processed": _process_emails(sync, graph, emails)}
 
 
-@app.post("/gmail/webhook")
+@gmail_router.post("/webhook")
 def gmail_webhook(
     envelope: dict,
     sync: GmailSync = Depends(get_gmail_sync),
@@ -163,3 +168,34 @@ def gmail_webhook(
 
     emails = sync.process_history(notification["history_id"])
     return {"processed": _process_emails(sync, graph, emails)}
+
+
+# Register API routes (both direct and with /api prefix for frontend/backend flexibility)
+app.include_router(applications_router)
+app.include_router(applications_router, prefix="/api")
+app.include_router(auth_router)
+app.include_router(auth_router, prefix="/api")
+app.include_router(gmail_router)
+app.include_router(gmail_router, prefix="/api")
+
+
+# ── Static React SPA Serving ───────────────────────────────────────────────
+
+_frontend_dist = Path("/app/frontend/dist")
+if not _frontend_dist.exists():
+    _frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+if _frontend_dist.exists():
+    _assets = _frontend_dist / "assets"
+    if _assets.exists():
+        app.mount("/assets", StaticFiles(directory=str(_assets)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # Don't serve index.html for API paths that 404
+        if full_path.startswith(("api/", "auth/", "gmail/", "applications/")):
+            raise HTTPException(status_code=404, detail="Not Found")
+        file_path = _frontend_dist / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(_frontend_dist / "index.html")
