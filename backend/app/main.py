@@ -8,7 +8,13 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from langsmith import traceable
 
-load_dotenv()
+load_dotenv(override=True)
+if os.getenv('LANGSMITH_API_KEY') and not os.getenv('LANGCHAIN_API_KEY'):
+    os.environ['LANGCHAIN_API_KEY'] = os.environ['LANGSMITH_API_KEY']
+if os.getenv('LANGSMITH_TRACING') == 'true':
+    os.environ['LANGCHAIN_TRACING_V2'] = 'true'
+if os.getenv('LANGSMITH_PROJECT'):
+    os.environ.setdefault('LANGCHAIN_PROJECT', os.environ['LANGSMITH_PROJECT'])
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

@@ -1,4 +1,11 @@
 import { useState } from 'react'
+import {
+  BellRing,
+  Check,
+  Mail,
+  RefreshCw,
+  TriangleAlert,
+} from 'lucide-react'
 import { getAuthUrl, registerWatch, triggerFullSync } from '../services/api'
 
 type Action = 'auth' | 'watch' | 'sync'
@@ -12,7 +19,22 @@ function errorMessage(error: unknown): string {
     const message = (error as { message?: unknown }).message
     if (typeof message === 'string') return message
   }
-  return 'Something went wrong.'
+  return 'Something went wrong. Please try again.'
+}
+
+function Notice({ message }: { message: Message }) {
+  return (
+    <p className={`notice ${message.type}`} role="status">
+      <span className="icon" aria-hidden>
+        {message.type === 'error' ? (
+          <TriangleAlert size={15} />
+        ) : (
+          <Check size={15} />
+        )}
+      </span>
+      {message.text}
+    </p>
+  )
 }
 
 export default function SettingsPage() {
@@ -67,56 +89,101 @@ export default function SettingsPage() {
   return (
     <div className="page">
       <header className="page-header">
-        <h1>Settings</h1>
+        <p className="page-eyebrow">Configuration</p>
+        <h1 className="page-title">Settings</h1>
+        <p className="page-subtitle">
+          Connect your inbox and control how new applications are ingested.
+        </p>
       </header>
 
       <section className="panel">
-        <h2>Gmail Connection</h2>
-        <p className="muted">
-          You'll be redirected to Google to authorize access to your Gmail inbox.
-        </p>
-        <button className="btn-primary" onClick={connectGmail} disabled={busy}>
-          {loading === 'auth' ? (
-            <>
-              <span className="spinner" /> Working...
-            </>
-          ) : (
-            'Connect Gmail'
-          )}
-        </button>
-        {gmailError && <p className="notice error">{gmailError}</p>}
+        <div className="setting">
+          <div className="setting-info">
+            <span className="setting-title">Gmail connection</span>
+            <span className="setting-desc">
+              You'll be redirected to Google to authorize read access to your
+              inbox. Do this once.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={connectGmail}
+            disabled={busy}
+            aria-busy={loading === 'auth'}
+          >
+            {loading === 'auth' ? (
+              <>
+                <span className="spinner sm" /> Connecting
+              </>
+            ) : (
+              <>
+                <Mail size={15} aria-hidden /> Connect Gmail
+              </>
+            )}
+          </button>
+        </div>
+        {gmailError && <Notice message={{ type: 'error', text: gmailError }} />}
       </section>
 
       <section className="panel">
-        <h2>Push Notifications</h2>
-        <button className="btn" onClick={registerGmailWatch} disabled={busy}>
-          {loading === 'watch' ? (
-            <>
-              <span className="spinner" /> Working...
-            </>
-          ) : (
-            'Register Gmail Watch'
-          )}
-        </button>
-        {watchMessage && (
-          <p className={`notice ${watchMessage.type}`}>{watchMessage.text}</p>
-        )}
+        <div className="setting">
+          <div className="setting-info">
+            <span className="setting-title">Push notifications</span>
+            <span className="setting-desc">
+              Subscribe Gmail to your Pub/Sub topic so new mail is processed as
+              it arrives. Watches expire roughly weekly — re-run before then.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn"
+            onClick={registerGmailWatch}
+            disabled={busy}
+            aria-busy={loading === 'watch'}
+          >
+            {loading === 'watch' ? (
+              <>
+                <span className="spinner sm" /> Working
+              </>
+            ) : (
+              <>
+                <BellRing size={15} aria-hidden /> Register watch
+              </>
+            )}
+          </button>
+        </div>
+        {watchMessage && <Notice message={watchMessage} />}
       </section>
 
       <section className="panel">
-        <h2>Manual Sync</h2>
-        <button className="btn" onClick={runFullSync} disabled={busy}>
-          {loading === 'sync' ? (
-            <>
-              <span className="spinner" /> Working...
-            </>
-          ) : (
-            'Run Full Sync'
-          )}
-        </button>
-        {syncMessage && (
-          <p className={`notice ${syncMessage.type}`}>{syncMessage.text}</p>
-        )}
+        <div className="setting">
+          <div className="setting-info">
+            <span className="setting-title">Manual sync</span>
+            <span className="setting-desc">
+              Pull recent messages now and run them through the classifier. Use
+              this to backfill history or test without waiting for a push.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn"
+            onClick={runFullSync}
+            disabled={busy}
+            aria-busy={loading === 'sync'}
+          >
+            {loading === 'sync' ? (
+              <>
+                <span className="spinner sm" /> Syncing
+              </>
+            ) : (
+              <>
+                <RefreshCw size={15} aria-hidden /> Run full sync
+              </>
+            )}
+          </button>
+        </div>
+        {syncMessage && <Notice message={syncMessage} />}
       </section>
     </div>
   )

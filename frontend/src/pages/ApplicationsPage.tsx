@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  Award,
+  Briefcase,
+  CalendarClock,
+  Inbox,
+  RotateCcw,
+  Search,
+  TriangleAlert,
+  X,
+} from 'lucide-react'
 import StatusBadge from '../components/StatusBadge'
 import {
   getApplications,
@@ -23,13 +33,47 @@ const FILTERS: { label: string; value: ApplicationStatus | 'ALL' }[] = [
 
 const PAGE_SIZE = 200
 
+function TableSkeleton() {
+  return (
+    <table className="table" aria-hidden>
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: 5 }).map((_, index) => (
+          <tr key={index}>
+            <td>
+              <span className="skeleton" style={{ width: '60%' }} />
+            </td>
+            <td>
+              <span className="skeleton" style={{ width: '45%' }} />
+            </td>
+            <td>
+              <span className="skeleton" style={{ width: 110 }} />
+            </td>
+            <td>
+              <span className="skeleton" style={{ width: 90 }} />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [stats, setStats] = useState<ApplicationStats | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<ApplicationStatus | 'ALL'>('ALL')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const [pendingId, setPendingId] = useState<number | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -37,7 +81,7 @@ export default function ApplicationsPage() {
     try {
       setStats(await getApplicationStats())
     } catch {
-      // Counts are non-critical; ignore failures.
+      // Counts are non-critical; a failed fetch just leaves the tabs at zero.
     }
   }, [])
 
@@ -52,18 +96,18 @@ export default function ApplicationsPage() {
     if (filter !== 'ALL') {
       filters.status = filter
     } else {
-      filters.include_closed = false // hide closed from the All tab
+      filters.include_closed = false
     }
 
     setLoading(true)
-    setError(null)
+    setError(false)
     const timer = window.setTimeout(() => {
       getApplications(filters)
         .then((data) => {
           if (active) setApplications(data.items)
         })
         .catch(() => {
-          if (active) setError('Could not load applications. Is the backend running?')
+          if (active) setError(true)
         })
         .finally(() => {
           if (active) setLoading(false)
@@ -74,7 +118,7 @@ export default function ApplicationsPage() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [search, filter])
+  }, [search, filter, reloadKey])
 
   const toggleClosed = async (application: Application) => {
     setPendingId(application.id)
@@ -112,40 +156,70 @@ export default function ApplicationsPage() {
     : 0
   const offers = stats?.by_status['OFFER'] ?? 0
 
+  const isFiltered = search.trim().length > 0 || filter !== 'ALL'
+
   return (
     <div className="page">
       <header className="page-header">
-        <h1>Job Application Tracker</h1>
+        <p className="page-eyebrow">Overview</p>
+        <h1 className="page-title">Applications</h1>
+        <p className="page-subtitle">
+          Every application your inbox agent has tracked, newest activity first.
+        </p>
       </header>
 
       <section className="stats">
         <div className="stat-card">
-          <span className="stat-value">{stats?.total ?? '—'}</span>
-          <span className="stat-label">Total Applications</span>
+          <div>
+            <span className="stat-label">Total applications</span>
+            <span className="stat-value">{stats?.total ?? '—'}</span>
+          </div>
+          <span className="stat-icon" aria-hidden>
+            <Briefcase size={16} />
+          </span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">{interviews}</span>
-          <span className="stat-label">Interviews</span>
+          <div>
+            <span className="stat-label">Interviews</span>
+            <span className="stat-value">{interviews}</span>
+          </div>
+          <span className="stat-icon" aria-hidden>
+            <CalendarClock size={16} />
+          </span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">{offers}</span>
-          <span className="stat-label">Offers</span>
+          <div>
+            <span className="stat-label">Offers</span>
+            <span className="stat-value">{offers}</span>
+          </div>
+          <span className="stat-icon" aria-hidden>
+            <Award size={16} />
+          </span>
         </div>
       </section>
 
       <section className="panel">
         <div className="toolbar">
-          <input
-            className="search"
-            placeholder="Search applications..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <div className="filters">
+          <div className="search-wrap">
+            <span className="search-icon" aria-hidden>
+              <Search size={15} />
+            </span>
+            <input
+              className="search"
+              type="search"
+              placeholder="Search company or role"
+              aria-label="Search applications"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+          <div className="filters" role="group" aria-label="Filter by status">
             {FILTERS.map((option) => (
               <button
                 key={option.value}
+                type="button"
                 className={filter === option.value ? 'filter active' : 'filter'}
+                aria-pressed={filter === option.value}
                 onClick={() => setFilter(option.value)}
               >
                 {option.label}
@@ -155,74 +229,148 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        {loading && <p className="state">Loading applications...</p>}
-        {error && <p className="state error">{error}</p>}
-        {actionError && <p className="state error">{actionError}</p>}
+        {actionError && (
+          <div className="error-callout callout-spaced">
+            <span className="error-icon" aria-hidden>
+              <TriangleAlert size={16} />
+            </span>
+            <div className="error-body">
+              <span className="error-title">Update failed</span>
+              <span className="error-text">{actionError}</span>
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="table-wrap">
+            <TableSkeleton />
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="error-callout">
+            <span className="error-icon" aria-hidden>
+              <TriangleAlert size={16} />
+            </span>
+            <div className="error-body">
+              <span className="error-title">Couldn't load applications</span>
+              <span className="error-text">
+                This is usually a network hiccup. Try again in a moment.
+              </span>
+              <button
+                type="button"
+                className="btn btn-sm callout-actions"
+                onClick={() => setReloadKey((key) => key + 1)}
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        )}
 
         {!loading && !error && applications.length === 0 && (
-          <p className="state">No applications found.</p>
+          <div className="empty">
+            <span className="empty-icon" aria-hidden>
+              <Inbox size={20} />
+            </span>
+            {isFiltered ? (
+              <>
+                <span className="empty-title">No matching applications</span>
+                <span className="empty-text">
+                  Nothing matches this search or filter. Try a different view.
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => {
+                    setSearch('')
+                    setFilter('ALL')
+                  }}
+                >
+                  Clear filters
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="empty-title">No applications yet</span>
+                <span className="empty-text">
+                  Connect Gmail and run a sync to start tracking your
+                  applications automatically.
+                </span>
+                <Link className="btn btn-sm" to="/settings">
+                  Go to Settings
+                </Link>
+              </>
+            )}
+          </div>
         )}
 
         {!loading && !error && applications.length > 0 && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th className="actions-cell" />
-                <th>Company</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {applications.map((application) => (
-                <tr
-                  key={application.id}
-                  className={application.is_closed ? 'row-closed' : undefined}
-                >
-                  <td className="actions-cell">
-                    <button
-                      className={
-                        application.is_closed ? 'icon-btn reopen' : 'icon-btn close'
-                      }
-                      title={
-                        application.is_closed
-                          ? 'Reopen application'
-                          : 'Mark as closed'
-                      }
-                      aria-label={
-                        application.is_closed
-                          ? 'Reopen application'
-                          : 'Mark as closed'
-                      }
-                      onClick={() => toggleClosed(application)}
-                      disabled={pendingId === application.id}
-                    >
-                      {pendingId === application.id ? (
-                        <span className="spinner small" />
-                      ) : application.is_closed ? (
-                        '↺'
-                      ) : (
-                        '×'
-                      )}
-                    </button>
-                  </td>
-                  <td>
-                    <Link to={`/applications/${application.id}`}>
-                      {application.company}
-                    </Link>
-                  </td>
-                  <td>{application.role}</td>
-                  <td>
-                    <StatusBadge
-                      status={application.is_closed ? 'CLOSED' : application.status}
-                    />
-                  </td>
-                  <td className="muted">{formatDateTime(application.updated_at)}</td>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th aria-label="Actions" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {applications.map((application) => (
+                  <tr
+                    key={application.id}
+                    className={application.is_closed ? 'row-closed' : undefined}
+                  >
+                    <td className="cell-company">
+                      <Link to={`/applications/${application.id}`}>
+                        {application.company}
+                      </Link>
+                    </td>
+                    <td className="cell-role">{application.role}</td>
+                    <td>
+                      <StatusBadge
+                        status={
+                          application.is_closed ? 'CLOSED' : application.status
+                        }
+                      />
+                    </td>
+                    <td className="cell-date">
+                      {formatDateTime(application.updated_at)}
+                    </td>
+                    <td className="cell-actions">
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label={
+                          application.is_closed
+                            ? `Reopen ${application.company} ${application.role}`
+                            : `Mark ${application.company} ${application.role} as closed`
+                        }
+                        title={
+                          application.is_closed
+                            ? 'Reopen application'
+                            : 'Mark as closed'
+                        }
+                        aria-busy={pendingId === application.id}
+                        disabled={pendingId === application.id}
+                        onClick={() => toggleClosed(application)}
+                      >
+                        {pendingId === application.id ? (
+                          <span className="spinner sm" />
+                        ) : application.is_closed ? (
+                          <RotateCcw size={16} aria-hidden />
+                        ) : (
+                          <X size={16} aria-hidden />
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </div>

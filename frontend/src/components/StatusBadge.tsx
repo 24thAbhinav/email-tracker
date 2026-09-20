@@ -19,7 +19,8 @@ export function statusLabel(status: ApplicationStatus): string {
 
 export default function StatusBadge({ status }: { status: ApplicationStatus }) {
   return (
-    <span className={`badge badge-${status.toLowerCase()}`}>
+    <span className="status" data-status={status}>
+      <span className="status-dot" aria-hidden />
       {statusLabel(status)}
     </span>
   )
