@@ -1,29 +1,38 @@
-// Shared TypeScript types for job applications
+// Shared TypeScript types for job applications (mirrors the FastAPI schemas)
 
 export type ApplicationStatus =
-  | 'applied'
-  | 'screening'
-  | 'interview'
-  | 'offer'
-  | 'rejected'
-  | 'withdrawn'
-  | 'unknown'
+  | 'APPLIED'
+  | 'UNDER_REVIEW'
+  | 'OA'
+  | 'INTERVIEW'
+  | 'INTERVIEW_PASSED'
+  | 'INTERVIEW_REJECTED'
+  | 'OFFER'
+  | 'REJECTED'
+  | 'WITHDRAWN'
 
-export interface JobApplication {
-  id: string
+export interface Application {
+  id: number
   company: string
   role: string
   status: ApplicationStatus
-  appliedAt: string          // ISO date string
-  updatedAt: string
-  sourceEmailId?: string     // Gmail message ID
-  notes?: string
-  jobUrl?: string
-  salary?: string
-  location?: string
+  applied_at: string | null
+  updated_at: string
+  source_email_id: string
+  sender_email: string | null
 }
 
-export interface ApiResponse<T> {
-  data: T
-  message?: string
+export interface ApplicationEvent {
+  id: number
+  application_id: number
+  status: ApplicationStatus
+  note: string | null
+  created_at: string
+}
+
+export interface ApplicationListResponse {
+  items: Application[]
+  total: number
+  limit: number
+  offset: number
 }

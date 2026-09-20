@@ -45,3 +45,16 @@ class Application(SQLModel, table=True):
 
     source_email_id: str = Field(unique=True, index=True)
     sender_email: str | None = Field(default=None, index=True)
+
+
+class ApplicationEvent(SQLModel, table=True):
+    """A status change for an application, used to render its timeline."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    application_id: int = Field(foreign_key="application.id", index=True)
+    status: ApplicationStatus
+    note: str | None = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=utcnow,
+        sa_type=DateTime(timezone=True),
+    )

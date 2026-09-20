@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from app.db.models import Application, ApplicationStatus, utcnow
+from app.db.models import Application, ApplicationEvent, ApplicationStatus, utcnow
 
 
 @runtime_checkable
@@ -55,6 +55,8 @@ class ApplicationRepository:
         )
         self.session.add(application)
         try:
+            self.session.flush()  # assign id before recording the event
+            self._record_event(application, status)
             self.session.commit()
         except IntegrityError:
             self.session.rollback()
@@ -92,6 +94,7 @@ class ApplicationRepository:
         application.status = status
         application.updated_at = utcnow()
         self.session.add(application)
+        self._record_event(application, status)
         try:
             self.session.commit()
         except IntegrityError:
@@ -99,6 +102,61 @@ class ApplicationRepository:
             raise
         self.session.refresh(application)
         return application
+
+    def list_applications(
+        self,
+        *,
+        status: ApplicationStatus | None = None,
+        company: str | None = None,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Application], int]:
+        """Return ``(items, total)`` ordered by most recently updated."""
+        conditions = []
+        if status is not None:
+            conditions.append(Application.status == status)
+        if company:
+            conditions.append(
+                func.lower(func.trim(Application.company)) == company.strip().lower()
+            )
+        if search:
+            term = f"%{search.strip().lower()}%"
+            conditions.append(
+                or_(
+                    func.lower(Application.company).like(term),
+                    func.lower(Application.role).like(term),
+                )
+            )
+
+        total = self.session.exec(
+            select(func.count()).select_from(Application).where(*conditions)
+        ).one()
+        statement = (
+            select(Application)
+            .where(*conditions)
+            .order_by(Application.updated_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        items = list(self.session.exec(statement).all())
+        return items, total
+
+    def list_events(self, application_id: int) -> list[ApplicationEvent]:
+        """Return an application's status history, oldest first."""
+        statement = (
+            select(ApplicationEvent)
+            .where(ApplicationEvent.application_id == application_id)
+            .order_by(ApplicationEvent.created_at.asc(), ApplicationEvent.id.asc())
+        )
+        return list(self.session.exec(statement).all())
+
+    def _record_event(
+        self, application: Application, status: ApplicationStatus
+    ) -> None:
+        self.session.add(
+            ApplicationEvent(application_id=application.id, status=status)
+        )
 
     def create_or_update_application(
         self, extraction: ApplicationExtractionLike, email_id: str, sender_email: str | None = None

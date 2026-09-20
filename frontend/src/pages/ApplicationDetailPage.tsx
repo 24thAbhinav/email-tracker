@@ -1,0 +1,111 @@
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import StatusBadge, { statusLabel } from '../components/StatusBadge'
+import { getApplication, getApplicationEvents } from '../services/api'
+import type { Application, ApplicationEvent } from '../types'
+import { formatDateTime } from '../utils/format'
+
+export default function ApplicationDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const [application, setApplication] = useState<Application | null>(null)
+  const [events, setEvents] = useState<ApplicationEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!id) return
+    const applicationId = Number(id)
+    let active = true
+
+    setLoading(true)
+    setError(null)
+    Promise.all([
+      getApplication(applicationId),
+      getApplicationEvents(applicationId),
+    ])
+      .then(([loadedApplication, loadedEvents]) => {
+        if (!active) return
+        setApplication(loadedApplication)
+        setEvents(loadedEvents)
+      })
+      .catch(() => {
+        if (active) setError('Could not load this application.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [id])
+
+  return (
+    <div className="page">
+      <Link className="back" to="/">
+        ← Back to applications
+      </Link>
+
+      {loading && <p className="state">Loading application...</p>}
+      {error && <p className="state error">{error}</p>}
+
+      {!loading && !error && application && (
+        <>
+          <header className="page-header detail-header">
+            <div>
+              <h1>{application.company}</h1>
+              <p className="muted">{application.role}</p>
+            </div>
+            <StatusBadge status={application.status} />
+          </header>
+
+          <section className="panel detail-grid">
+            <div>
+              <span className="field-label">Company</span>
+              <span>{application.company}</span>
+            </div>
+            <div>
+              <span className="field-label">Role</span>
+              <span>{application.role}</span>
+            </div>
+            <div>
+              <span className="field-label">Status</span>
+              <span>{statusLabel(application.status)}</span>
+            </div>
+            <div>
+              <span className="field-label">Applied</span>
+              <span>{formatDateTime(application.applied_at)}</span>
+            </div>
+            <div>
+              <span className="field-label">Last updated</span>
+              <span>{formatDateTime(application.updated_at)}</span>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h2>Timeline</h2>
+            {events.length === 0 ? (
+              <p className="state">No events recorded yet.</p>
+            ) : (
+              <ol className="timeline">
+                {events.map((event) => (
+                  <li key={event.id} className="timeline-item">
+                    <span className="timeline-dot" />
+                    <div className="timeline-body">
+                      <span className="timeline-status">
+                        {statusLabel(event.status)}
+                      </span>
+                      <span className="timeline-date muted">
+                        {formatDateTime(event.created_at)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,35 @@
+# schemas.py - API response models
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlmodel import SQLModel
+
+from app.db.models import ApplicationStatus
+
+
+class ApplicationRead(SQLModel):
+    id: int
+    company: str
+    role: str
+    status: ApplicationStatus
+    applied_at: datetime | None = None
+    updated_at: datetime
+    source_email_id: str
+    sender_email: str | None = None
+
+
+class ApplicationListResponse(SQLModel):
+    items: list[ApplicationRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class ApplicationEventRead(SQLModel):
+    id: int
+    application_id: int
+    status: ApplicationStatus
+    note: str | None = None
+    created_at: datetime

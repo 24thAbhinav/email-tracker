@@ -54,3 +54,25 @@ htmlcov/
 .vscode/*
 !.vscode/settings.json          # track shared project settings
 !.vscode/extensions.json        # track recommended extensions
+
+# ── Security / secrets ────────────────────────────────
+*.pem
+*.key
+*.p12
+*.pfx
+service_account*.json
+gcloud*.json
+
+# ── SQLite (explicit, already covered by *.db) ────────
+job_tracker.db
+job_tracker.db-shm
+job_tracker.db-wal
+
+# ── Frontend env ──────────────────────────────────────
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ── Misc runtime ─────────────────────────────────────
+*.pid
+celerybeat-schedule
