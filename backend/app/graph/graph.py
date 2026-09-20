@@ -92,12 +92,13 @@ def extract(state: ApplicationState) -> dict:
 Extract the following details from the email:
 - company: Name of the company
 - role: Job title / role applied for
-- status: One of {[s.value for s in ApplicationStatus]}
+- status: One of {[s.value for s in ApplicationStatus if s is not ApplicationStatus.CLOSED]}
   UNDER_REVIEW = application received / under review
   OA = online assessment / coding test invitation
   INTERVIEW / INTERVIEW_PASSED / INTERVIEW_REJECTED = interview stages
   OFFER = job offer extended
   REJECTED = application rejected / not selected
+  Never use CLOSED; that status is set by the user only.
 - summary: A concise 1-2 sentence summary describing the email update or instructions (e.g. 'Received OA link for technical round', 'Invited to 45-min technical interview').
 - action_url: The primary link for the candidate if available in the text (e.g. interview link, test link, scheduling calendar link, portal login).
 - event_date: Any specific scheduled date/time or deadline mentioned for the action (e.g. 'Sept 25, 2026 at 3:00 PM', 'Complete by Sept 22').

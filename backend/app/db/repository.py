@@ -135,6 +135,45 @@ class ApplicationRepository:
         self.session.refresh(application)
         return application
 
+    def set_application_closed(
+        self, application: Application, is_closed: bool
+    ) -> Application:
+        """Close an application (status -> CLOSED) or reopen it.
+
+        Closing records the previous status so reopening restores it.
+        """
+        if is_closed:
+            if not application.is_closed:
+                application.previous_status = application.status
+            application.status = ApplicationStatus.CLOSED
+            application.is_closed = True
+            application.closed_at = utcnow()
+        else:
+            application.status = application.previous_status or ApplicationStatus.APPLIED
+            application.previous_status = None
+            application.is_closed = False
+            application.closed_at = None
+        application.updated_at = utcnow()
+        self.session.add(application)
+        self._record_event(application, application.status)
+        try:
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            raise
+        self.session.refresh(application)
+        return application
+
+    def status_counts(self) -> dict[ApplicationStatus, int]:
+        """Count applications per status (closed included)."""
+        rows = self.session.exec(
+            select(Application.status, func.count()).group_by(Application.status)
+        ).all()
+        counts = {status: 0 for status in ApplicationStatus}
+        for status, count in rows:
+            counts[status] = count
+        return counts
+
     def list_applications(
         self,
         *,
@@ -143,9 +182,12 @@ class ApplicationRepository:
         search: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        include_closed: bool = True,
     ) -> tuple[list[Application], int]:
-        """Return (items, total) ordered by most recently updated."""
+        """Return ``(items, total)`` ordered by most recently updated."""
         conditions = []
+        if not include_closed:
+            conditions.append(Application.is_closed.is_(False))
         if status is not None:
             conditions.append(Application.status == status)
         if company:

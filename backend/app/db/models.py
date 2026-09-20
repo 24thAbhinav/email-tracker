@@ -24,6 +24,8 @@ class ApplicationStatus(str, Enum):
     OFFER = "OFFER"
     REJECTED = "REJECTED"
     WITHDRAWN = "WITHDRAWN"
+    # Set by the user when they close an application; never produced by the LLM.
+    CLOSED = "CLOSED"
 
 
 class Application(SQLModel, table=True):
@@ -45,6 +47,14 @@ class Application(SQLModel, table=True):
 
     source_email_id: str = Field(unique=True, index=True)
     sender_email: str | None = Field(default=None, index=True)
+
+    # Manually closed by the user. Closing sets status=CLOSED; the prior
+    # status is remembered so reopening can restore it.
+    is_closed: bool = Field(default=False, index=True)
+    closed_at: datetime | None = Field(
+        default=None, sa_type=DateTime(timezone=True)
+    )
+    previous_status: ApplicationStatus | None = Field(default=None)
 
     notes: str | None = Field(default=None)
     action_url: str | None = Field(default=None)

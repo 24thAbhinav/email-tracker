@@ -21,6 +21,18 @@ class ApplicationRead(SQLModel):
     notes: str | None = None
     action_url: str | None = None
     event_date: str | None = None
+    is_closed: bool = False
+    closed_at: datetime | None = None
+
+
+class ApplicationUpdate(SQLModel):
+    is_closed: bool
+
+
+class ApplicationStats(SQLModel):
+    total: int  # excludes closed
+    closed: int
+    by_status: dict[str, int]
 
 
 class ApplicationListResponse(SQLModel):

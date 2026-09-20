@@ -5,6 +5,7 @@ import type {
   Application,
   ApplicationEvent,
   ApplicationListResponse,
+  ApplicationStats,
 } from '../types'
 
 const api = axios.create({
@@ -18,6 +19,12 @@ export interface ApplicationFilters {
   search?: string
   limit?: number
   offset?: number
+  include_closed?: boolean
+}
+
+export async function getApplicationStats(): Promise<ApplicationStats> {
+  const { data } = await api.get<ApplicationStats>('/applications/stats')
+  return data
 }
 
 export async function getApplications(
@@ -38,6 +45,16 @@ export async function getApplicationEvents(
   id: number,
 ): Promise<ApplicationEvent[]> {
   const { data } = await api.get<ApplicationEvent[]>(`/applications/${id}/events`)
+  return data
+}
+
+export async function setApplicationClosed(
+  id: number,
+  isClosed: boolean,
+): Promise<Application> {
+  const { data } = await api.patch<Application>(`/applications/${id}`, {
+    is_closed: isClosed,
+  })
   return data
 }
 

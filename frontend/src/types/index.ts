@@ -10,6 +10,7 @@ export type ApplicationStatus =
   | 'OFFER'
   | 'REJECTED'
   | 'WITHDRAWN'
+  | 'CLOSED'
 
 export interface Application {
   id: number
@@ -23,6 +24,8 @@ export interface Application {
   notes?: string | null
   action_url?: string | null
   event_date?: string | null
+  is_closed: boolean
+  closed_at: string | null
 }
 
 export interface ApplicationEvent {
@@ -40,4 +43,10 @@ export interface ApplicationListResponse {
   total: number
   limit: number
   offset: number
+}
+
+export interface ApplicationStats {
+  total: number // excludes closed
+  closed: number
+  by_status: Record<string, number>
 }

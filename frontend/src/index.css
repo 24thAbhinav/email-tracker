@@ -27,6 +27,8 @@ a:hover { text-decoration: underline; }
 .filter { background: transparent; border: 1px solid #33333b; color: #cbd5e1; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
 .filter:hover { border-color: #7dd3fc; }
 .filter.active { background: #7dd3fc; border-color: #7dd3fc; color: #0f0f11; font-weight: 600; }
+.filter-count { margin-left: 6px; font-size: 11px; font-variant-numeric: tabular-nums; opacity: .7; }
+.filter.active .filter-count { opacity: .9; }
 
 /* Table */
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -43,6 +45,7 @@ a:hover { text-decoration: underline; }
 .badge-interview_rejected, .badge-rejected { background: #3b1418; color: #fca5a5; }
 .badge-offer { background: #0b3b1e; color: #86efac; }
 .badge-withdrawn { background: #2a2a30; color: #cbd5e1; }
+.badge-closed { background: #2a2a30; color: #94a3b8; border-color: #3f3f46; }
 
 /* States */
 .state { padding: 24px 4px; color: #94a3b8; }
@@ -81,6 +84,18 @@ a:hover { text-decoration: underline; }
 .notice { margin-top: 14px; font-size: 14px; }
 .notice.success { color: #86efac; }
 .notice.error { color: #fca5a5; }
+
+/* Close / actions */
+.actions-cell { width: 40px; text-align: center; }
+.icon-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #33333b; background: transparent; color: #94a3b8; font-size: 15px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; transition: border-color .15s ease, color .15s ease; }
+.icon-btn.close:hover:not(:disabled) { border-color: #fca5a5; color: #fca5a5; }
+.icon-btn.reopen:hover:not(:disabled) { border-color: #7dd3fc; color: #7dd3fc; }
+.icon-btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.small { padding: 6px 14px; font-size: 13px; }
+.spinner.small { width: 12px; height: 12px; border-width: 2px; }
+.row-closed td { color: #64748b; }
+.row-closed a { color: #64748b; }
+.closed-tag { margin-left: 8px; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; border: 1px solid #33333b; border-radius: 999px; padding: 1px 8px; vertical-align: middle; }
 
 /* Timeline */
 .timeline { list-style: none; position: relative; padding-left: 8px; }

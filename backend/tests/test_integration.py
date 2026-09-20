@@ -73,6 +73,7 @@ def test_email_to_state_mapping():
         "email_body": "Body",
         "source_email_id": "e1",
         "sender_email": "recruiter@acme.com",
+        "received_at": None,
     }
 
 

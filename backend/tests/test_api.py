@@ -117,3 +117,64 @@ def test_get_application_events_not_found(client):
     response = client.get("/applications/99999/events")
 
     assert response.status_code == 404
+
+
+def test_close_sets_status_closed_and_reopen_restores(client, engine):
+    application_id = seed(
+        engine, "Acme Corp", "Backend Intern", ApplicationStatus.UNDER_REVIEW
+    )
+
+    closed = client.patch(f"/applications/{application_id}", json={"is_closed": True})
+
+    assert closed.status_code == 200
+    body = closed.json()
+    assert body["is_closed"] is True
+    assert body["status"] == "CLOSED"
+    assert body["closed_at"] is not None
+
+    reopened = client.patch(
+        f"/applications/{application_id}", json={"is_closed": False}
+    )
+
+    assert reopened.status_code == 200
+    assert reopened.json()["is_closed"] is False
+    assert reopened.json()["status"] == "UNDER_REVIEW"
+    assert reopened.json()["closed_at"] is None
+
+
+def test_list_filter_by_closed_status(client, engine):
+    open_id = seed(engine, "Google", "SWE Intern", ApplicationStatus.UNDER_REVIEW)
+    closed_id = seed(engine, "Amazon", "SDE Intern", ApplicationStatus.APPLIED)
+    client.patch(f"/applications/{closed_id}", json={"is_closed": True})
+
+    response = client.get("/applications", params={"status": "CLOSED"})
+
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == closed_id
+    assert body["items"][0]["id"] != open_id
+
+
+def test_stats_and_include_closed(client, engine):
+    seed(engine, "Google", "SWE Intern", ApplicationStatus.UNDER_REVIEW)
+    seed(engine, "Amazon", "SDE Intern", ApplicationStatus.OFFER)
+    closed_id = seed(engine, "Meta", "PE", ApplicationStatus.APPLIED)
+    client.patch(f"/applications/{closed_id}", json={"is_closed": True})
+
+    stats = client.get("/applications/stats").json()
+
+    assert stats["total"] == 2
+    assert stats["closed"] == 1
+    assert stats["by_status"]["CLOSED"] == 1
+    assert stats["by_status"]["OFFER"] == 1
+    assert stats["by_status"]["APPLIED"] == 0
+
+    assert client.get("/applications").json()["total"] == 3
+    visible = client.get("/applications", params={"include_closed": False}).json()
+    assert visible["total"] == 2
+
+
+def test_close_application_not_found(client):
+    response = client.patch("/applications/99999", json={"is_closed": True})
+
+    assert response.status_code == 404

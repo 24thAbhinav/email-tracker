@@ -10,6 +10,7 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   OFFER: 'Offer',
   REJECTED: 'Rejected',
   WITHDRAWN: 'Withdrawn',
+  CLOSED: 'Closed',
 }
 
 export function statusLabel(status: ApplicationStatus): string {

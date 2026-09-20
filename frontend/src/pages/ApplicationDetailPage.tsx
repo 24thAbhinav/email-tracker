@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import StatusBadge, { statusLabel } from '../components/StatusBadge'
-import { getApplication, getApplicationEvents } from '../services/api'
+import {
+  getApplication,
+  getApplicationEvents,
+  setApplicationClosed,
+} from '../services/api'
 import type { Application, ApplicationEvent } from '../types'
 import { formatDateTime } from '../utils/format'
 
@@ -11,6 +15,25 @@ export default function ApplicationDetailPage() {
   const [events, setEvents] = useState<ApplicationEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const toggleClosed = async () => {
+    if (!application) return
+    setPending(true)
+    setActionError(null)
+    try {
+      const updated = await setApplicationClosed(
+        application.id,
+        !application.is_closed,
+      )
+      setApplication(updated)
+    } catch {
+      setActionError('Could not update this application.')
+    } finally {
+      setPending(false)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -67,9 +90,33 @@ export default function ApplicationDetailPage() {
                   Open Link ↗
                 </a>
               )}
-              <StatusBadge status={application.status} />
+              <StatusBadge
+                status={application.is_closed ? 'CLOSED' : application.status}
+              />
+              <button
+                className="btn small"
+                onClick={toggleClosed}
+                disabled={pending}
+                title={
+                  application.is_closed
+                    ? 'Reopen application'
+                    : 'Mark as closed'
+                }
+              >
+                {pending ? (
+                  <>
+                    <span className="spinner small" /> Working...
+                  </>
+                ) : application.is_closed ? (
+                  'Reopen'
+                ) : (
+                  'Mark as closed'
+                )}
+              </button>
             </div>
           </header>
+
+          {actionError && <p className="state error">{actionError}</p>}
 
           <section className="panel detail-grid">
             <div>
@@ -82,7 +129,9 @@ export default function ApplicationDetailPage() {
             </div>
             <div>
               <span className="field-label">Status</span>
-              <span>{statusLabel(application.status)}</span>
+              <span>
+                {statusLabel(application.is_closed ? 'CLOSED' : application.status)}
+              </span>
             </div>
             <div>
               <span className="field-label">Applied</span>
