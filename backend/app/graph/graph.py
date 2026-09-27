@@ -31,6 +31,7 @@ llm = ChatOpenAI(
     api_key=SecretStr(_opencode_key),
     base_url="https://opencode.ai/zen/go/v1",
     default_headers={"x-opencode-session": OPENCODE_SESSION_ID},
+    max_retries=3,  # retry on transient proxy errors (null choices, 5xx, etc.)
 )
 
 
@@ -81,10 +82,11 @@ classifier_llm = llm.with_structured_output(Classifier)
 
 # Nodes
 def classify_email(state: ApplicationState) -> dict:
-    result = cast(
-        Classifier,
-        classifier_llm.invoke(
-            f"""Analyze whether this email is related to a job application
+    try:
+        result = cast(
+            Classifier,
+            classifier_llm.invoke(
+                f"""Analyze whether this email is related to a job application
 (e.g. confirmation, status update, rejection, offer, OA, interview invite).
 
 Subject: {state.get("email_subject", "")}
@@ -92,9 +94,14 @@ Subject: {state.get("email_subject", "")}
 Body:
 {state.get("email_body", "")}
 """
-        ),
-    )
-    return {"is_application_email": result.is_application_email}
+            ),
+        )
+        return {"is_application_email": result.is_application_email}
+    except Exception as exc:
+        # Proxy returned a malformed response (e.g. choices=null). Log and skip
+        # this email rather than crashing the graph and losing the webhook.
+        print(f"[classify_email] LLM error, skipping email: {exc!r}")
+        return {"is_application_email": False}
 
 
 def extract(state: ApplicationState) -> dict:
