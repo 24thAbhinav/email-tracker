@@ -167,6 +167,15 @@ def gmail_webhook(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     emails = sync.process_history(notification["history_id"])
+
+    # Gmail watches expire every 7 days. Auto-renew whenever we're within
+    # 1 hour of expiry so pushes never silently stop arriving.
+    if sync.watch_needs_renewal():
+        try:
+            sync.renew_watch()
+        except GmailError:
+            pass  # don't fail the webhook if renewal fails; it'll retry next time
+
     return {"processed": _process_emails(sync, graph, emails)}
 
 
