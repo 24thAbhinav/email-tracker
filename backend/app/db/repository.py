@@ -171,7 +171,7 @@ class ApplicationRepository:
         ).all()
         counts = {status: 0 for status in ApplicationStatus}
         for status, count in rows:
-            counts[status] = count
+            counts[status] = count  # type: ignore[index]
         return counts
 
     def list_applications(
@@ -187,7 +187,7 @@ class ApplicationRepository:
         """Return ``(items, total)`` ordered by most recently updated."""
         conditions = []
         if not include_closed:
-            conditions.append(Application.is_closed.is_(False))
+            conditions.append(Application.is_closed.is_(False))  # type: ignore[union-attr]
         if status is not None:
             conditions.append(Application.status == status)
         if company:
@@ -195,7 +195,7 @@ class ApplicationRepository:
                 func.lower(func.trim(Application.company)) == company.strip().lower()
             )
         if search:
-            term = f"%{search.strip().lower()}%\草" if False else f"%{search.strip().lower()}%"
+            term = f"%{search.strip().lower()}%"
             conditions.append(
                 or_(
                     func.lower(Application.company).like(term),
@@ -209,7 +209,7 @@ class ApplicationRepository:
         statement = (
             select(Application)
             .where(*conditions)
-            .order_by(Application.updated_at.desc())
+            .order_by(Application.updated_at.desc())  # type: ignore[union-attr]
             .offset(offset)
             .limit(limit)
         )
@@ -221,7 +221,7 @@ class ApplicationRepository:
         statement = (
             select(ApplicationEvent)
             .where(ApplicationEvent.application_id == application_id)
-            .order_by(ApplicationEvent.created_at.asc(), ApplicationEvent.id.asc())
+            .order_by(ApplicationEvent.created_at.asc(), ApplicationEvent.id.asc())  # type: ignore[union-attr]
         )
         return list(self.session.exec(statement).all())
 
@@ -233,6 +233,7 @@ class ApplicationRepository:
         action_url: str | None = None,
         event_date: str | None = None,
     ) -> None:
+        assert application.id is not None, "application must be flushed before recording an event"
         self.session.add(
             ApplicationEvent(
                 application_id=application.id,

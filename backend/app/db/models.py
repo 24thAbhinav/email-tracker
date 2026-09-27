@@ -15,6 +15,7 @@ def utcnow() -> datetime:
 
 
 class ApplicationStatus(str, Enum):
+    RECOMMENDED = "RECOMMENDED"  # 3rd-party platform suggested this job (not yet applied)
     APPLIED = "APPLIED"
     UNDER_REVIEW = "UNDER_REVIEW"
     OA = "OA"
@@ -37,12 +38,11 @@ class Application(SQLModel, table=True):
 
     applied_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),
+        sa_column=Column(DateTime(timezone=True)),
     )
     updated_at: datetime = Field(
         default_factory=utcnow,
-        sa_type=DateTime(timezone=True),
-        sa_column_kwargs={"onupdate": utcnow},
+        sa_column=Column(DateTime(timezone=True), onupdate=utcnow),
     )
 
     source_email_id: str = Field(unique=True, index=True)
@@ -52,7 +52,7 @@ class Application(SQLModel, table=True):
     # status is remembered so reopening can restore it.
     is_closed: bool = Field(default=False, index=True)
     closed_at: datetime | None = Field(
-        default=None, sa_type=DateTime(timezone=True)
+        default=None, sa_column=Column(DateTime(timezone=True))
     )
     previous_status: ApplicationStatus | None = Field(default=None)
 
@@ -72,5 +72,5 @@ class ApplicationEvent(SQLModel, table=True):
     event_date: str | None = Field(default=None)
     created_at: datetime = Field(
         default_factory=utcnow,
-        sa_type=DateTime(timezone=True),
+        sa_column=Column(DateTime(timezone=True)),
     )

@@ -1,7 +1,6 @@
-from langsmith import traceable
 from datetime import datetime
-from typing import TypedDict
-from pydantic import BaseModel, Field
+from typing import TypedDict, cast
+from pydantic import BaseModel, Field, SecretStr
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
 from sqlmodel import Session
@@ -29,7 +28,7 @@ _opencode_key = os.getenv("OPENCODE_API_KEY") or os.getenv("OPENAI_API_KEY") or 
 
 llm = ChatOpenAI(
     model="mimo-v2.5",
-    api_key=_opencode_key,
+    api_key=SecretStr(_opencode_key),
     base_url="https://opencode.ai/zen/go/v1",
     default_headers={"x-opencode-session": OPENCODE_SESSION_ID},
 )
@@ -40,7 +39,7 @@ class ApplicationState(TypedDict, total=False):
     email_subject: str
     email_body: str
     source_email_id: str
-    sender_email: str
+    sender_email: str | None
     received_at: datetime | None
     is_application_email: bool
     company: str
@@ -82,26 +81,32 @@ classifier_llm = llm.with_structured_output(Classifier)
 
 # Nodes
 def classify_email(state: ApplicationState) -> dict:
-    result = classifier_llm.invoke(
-        f"""Analyze whether this email is related to a job application
+    result = cast(
+        Classifier,
+        classifier_llm.invoke(
+            f"""Analyze whether this email is related to a job application
 (e.g. confirmation, status update, rejection, offer, OA, interview invite).
 
-Subject: {state["email_subject"]}
+Subject: {state.get("email_subject", "")}
 
 Body:
-{state["email_body"]}
+{state.get("email_body", "")}
 """
+        ),
     )
     return {"is_application_email": result.is_application_email}
 
 
 def extract(state: ApplicationState) -> dict:
-    result = structured_llm.invoke(
-        f"""You are a job application tracker.
+    result = cast(
+        ApplicationExtraction,
+        structured_llm.invoke(
+            f"""You are a job application tracker.
 Extract the following details from the email:
 - company: Name of the company
 - role: Job title / role applied for
 - status: One of {[s.value for s in ApplicationStatus if s is not ApplicationStatus.CLOSED]}
+  RECOMMENDED = email suggesting a job to apply for (from LinkedIn, Indeed, Naukri, etc.) — not yet applied
   UNDER_REVIEW = application received / under review
   OA = online assessment / coding test invitation
   INTERVIEW / INTERVIEW_PASSED / INTERVIEW_REJECTED = interview stages
@@ -112,11 +117,12 @@ Extract the following details from the email:
 - action_url: The primary link for the candidate if available in the text (e.g. interview link, test link, scheduling calendar link, portal login).
 - event_date: Any specific scheduled date/time or deadline mentioned for the action (e.g. 'Sept 25, 2026 at 3:00 PM', 'Complete by Sept 22').
 
-Subject: {state["email_subject"]}
+Subject: {state.get("email_subject", "")}
 
 Body:
-{state["email_body"]}
+{state.get("email_body", "")}
 """
+        ),
     )
     return {
         "company": result.company,
@@ -130,10 +136,15 @@ Body:
 
 def make_persist_node(session_factory=lambda: Session(engine)):
     def persist(state: ApplicationState) -> dict:
+        company = state.get("company")
+        role = state.get("role")
+        status = state.get("status")
+        if company is None or role is None or status is None:
+            raise ValueError("Extraction result is missing company/role/status")
         extraction = ApplicationExtraction(
-            company=state["company"],
-            role=state["role"],
-            status=state["status"],
+            company=company,
+            role=role,
+            status=status,
             summary=state.get("summary"),
             action_url=state.get("action_url"),
             event_date=state.get("event_date"),
@@ -141,7 +152,7 @@ def make_persist_node(session_factory=lambda: Session(engine)):
         with session_factory() as session:
             application = ApplicationRepository(session).create_or_update_application(
                 extraction,
-                state["source_email_id"],
+                state.get("source_email_id", ""),
                 sender_email=state.get("sender_email"),
                 applied_at=state.get("received_at"),
             )
@@ -152,11 +163,11 @@ def make_persist_node(session_factory=lambda: Session(engine)):
 
 # Conditional routing
 def should_process(state: ApplicationState) -> str:
-    return "process" if state["is_application_email"] else "ignore"
+    return "process" if state.get("is_application_email") else "ignore"
 
 
 # Graph assembly
-graph = StateGraph(ApplicationState)
+graph = StateGraph(ApplicationState)  # type: ignore[bad-specialization]
 
 graph.add_node("classify_email", classify_email)
 graph.add_node("extract", extract)
