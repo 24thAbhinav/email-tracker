@@ -23,6 +23,7 @@ import { formatDateTime } from '../utils/format'
 
 const FILTERS: { label: string; value: ApplicationStatus | 'ALL' }[] = [
   { label: 'All', value: 'ALL' },
+  { label: 'Recommended', value: 'RECOMMENDED' },
   { label: 'Applied', value: 'APPLIED' },
   { label: 'Under Review', value: 'UNDER_REVIEW' },
   { label: 'OA', value: 'OA' },

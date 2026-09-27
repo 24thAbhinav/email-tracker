@@ -1,6 +1,7 @@
 import type { ApplicationStatus } from '../types'
 
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {
+  RECOMMENDED: 'Recommended',
   APPLIED: 'Applied',
   UNDER_REVIEW: 'Under Review',
   OA: 'Online Assessment',

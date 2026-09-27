@@ -1,6 +1,7 @@
 // Shared TypeScript types for job applications (mirrors the FastAPI schemas)
 
 export type ApplicationStatus =
+  | 'RECOMMENDED'
   | 'APPLIED'
   | 'UNDER_REVIEW'
   | 'OA'
