@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: job-tracker
+    name: mail-trace
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
@@ -28,4 +28,4 @@ services:
       - key: LANGCHAIN_API_KEY
         sync: false
       - key: LANGSMITH_PROJECT
-        value: job-tracker
+        value: mail-trace
